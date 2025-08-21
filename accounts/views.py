@@ -23,7 +23,7 @@ class SmartSendCodeView(APIView):
                 "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
                 "password": openapi.Schema(type=openapi.TYPE_STRING, example="strongpassword123"),
             },
-            required=["email"],
+            required=["email","password"],
         ),
         responses={
             200: openapi.Response(
