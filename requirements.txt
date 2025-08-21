@@ -6,3 +6,4 @@ python-dotenv
 gunicorn
 psycopg[binary]
 whitenoise
+drf_yasg

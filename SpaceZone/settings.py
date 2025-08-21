@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',  # JWT authentication
     'accounts',  # Custom user app
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
