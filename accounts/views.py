@@ -8,6 +8,7 @@ from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+
 class SmartSendCodeView(APIView):
     """
     Send verification code for either registration or login.
@@ -15,6 +16,7 @@ class SmartSendCodeView(APIView):
     - At least 30 seconds between requests
     - Max 5 codes per day
     """
+
     @swagger_auto_schema(
         operation_description="Send verification code for registration or login.",
         request_body=openapi.Schema(
@@ -23,7 +25,7 @@ class SmartSendCodeView(APIView):
                 "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
                 "password": openapi.Schema(type=openapi.TYPE_STRING, example="strongpassword123"),
             },
-            required=["email","password"],
+            required=["email", "password"],
         ),
         responses={
             200: openapi.Response(
@@ -58,12 +60,14 @@ class SmartSendCodeView(APIView):
                 else:
                     # Registration flow → password required
                     if not password:
-                        return Response({"error": "Password is required for registration"}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({"error": "Password is required for registration"},
+                                        status=status.HTTP_400_BAD_REQUEST)
                     action = "register"
             else:
                 # New registration → password required
                 if not password:
-                    return Response({"error": "Password is required for registration"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "Password is required for registration"},
+                                    status=status.HTTP_400_BAD_REQUEST)
                 action = "register"
                 user = CustomUser.objects.create_user(email=email, password=password)
 
@@ -98,6 +102,7 @@ class VerifyEmailCodeView(APIView):
     - If registration: just mark user as verified (no token yet).
     - If login: return JWT tokens.
     """
+
     @swagger_auto_schema(
         operation_description="Verify code for registration or login.",
         request_body=openapi.Schema(
