@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 import os
 from datetime import timedelta
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -157,8 +160,6 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,  # Blacklist the previous token after rotation
 }
 
-# Load environment variables from .env file
-load_dotenv()
 
 # Email settings from environment variables
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend

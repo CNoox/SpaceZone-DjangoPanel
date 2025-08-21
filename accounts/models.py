@@ -63,11 +63,11 @@ class VerificationCode(models.Model):
         return str(secrets.randbelow(1000000)).zfill(6)
 
     @classmethod
-    def create_code_for_user(cls, user, seconds_valid=30):
+    def create_code_for_user(cls, user, minutes_valid=5):
         code = cls.generate_code()
         instance = cls.objects.create(
             user=user,
             code=code,
-            expires_at=timezone.now() + timedelta(seconds=seconds_valid)
+            expires_at=timezone.now() + timedelta(minutes=minutes_valid)
         )
         return instance

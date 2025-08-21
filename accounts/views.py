@@ -41,8 +41,8 @@ class SmartSendCodeView(APIView):
             # 🔒 Rate limiting
             now = timezone.now()
             last_code = VerificationCode.objects.filter(user=user).order_by("-created_at").first()
-            if last_code and (now - last_code.created_at).total_seconds() < 30:
-                return Response({"error": "Please wait at least 30 seconds before requesting another code"},
+            if last_code and (now - last_code.created_at).total_seconds() < 300:
+                return Response({"error": "Please wait at least 5 minutes before requesting another code"},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             today_count = VerificationCode.objects.filter(user=user, created_at__date=now.date()).count()
