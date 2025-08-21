@@ -5,6 +5,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import CustomUser, VerificationCode
 from .serializers import SmartEmailSerializer, VerifyCodeSerializer
 from django.utils import timezone
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class SmartSendCodeView(APIView):
     """
@@ -13,6 +15,33 @@ class SmartSendCodeView(APIView):
     - At least 30 seconds between requests
     - Max 5 codes per day
     """
+    @swagger_auto_schema(
+        operation_description="Send verification code for registration or login.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
+                "password": openapi.Schema(type=openapi.TYPE_STRING, example="strongpassword123"),
+            },
+            required=["email"],
+        ),
+        responses={
+            200: openapi.Response(
+                description="Verification code sent successfully",
+                examples={
+                    "application/json": {
+                        "message": "Verification code sent for login"
+                    }
+                },
+            ),
+            400: openapi.Response(
+                description="Validation error",
+                examples={
+                    "application/json": {"error": "Password is required for registration"}
+                },
+            ),
+        },
+    )
     def post(self, request):
         serializer = SmartEmailSerializer(data=request.data)
         if serializer.is_valid():
@@ -38,7 +67,7 @@ class SmartSendCodeView(APIView):
                 action = "register"
                 user = CustomUser.objects.create_user(email=email, password=password)
 
-            # 🔒 Rate limiting
+            # Rate limiting
             now = timezone.now()
             last_code = VerificationCode.objects.filter(user=user).order_by("-created_at").first()
             if last_code and (now - last_code.created_at).total_seconds() < 300:
@@ -69,6 +98,45 @@ class VerifyEmailCodeView(APIView):
     - If registration: just mark user as verified (no token yet).
     - If login: return JWT tokens.
     """
+    @swagger_auto_schema(
+        operation_description="Verify code for registration or login.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
+                "code": openapi.Schema(type=openapi.TYPE_STRING, example="123456"),
+            },
+            required=["email", "code"],
+        ),
+        responses={
+            200: openapi.Response(
+                description="Successful verification",
+                examples={
+                    "application/json": {
+                        "action": "login",
+                        "user": {
+                            "email": "user@example.com",
+                            "first_name": "John",
+                            "last_name": "Doe",
+                            "avatar": "https://example.com/media/avatar.png",
+                            "national_code": "1234567890",
+                            "phone_number": "+49123456789",
+                        },
+                        "token": {
+                            "refresh": "jwt-refresh-token",
+                            "access": "jwt-access-token",
+                        },
+                    }
+                },
+            ),
+            400: openapi.Response(
+                description="Invalid or expired code",
+                examples={
+                    "application/json": {"error": "Invalid code"}
+                },
+            ),
+        },
+    )
     def post(self, request):
         serializer = VerifyCodeSerializer(data=request.data)
         if serializer.is_valid():

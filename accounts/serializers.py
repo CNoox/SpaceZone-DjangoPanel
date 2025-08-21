@@ -10,7 +10,7 @@ class SmartEmailSerializer(serializers.Serializer):
     Serializer to handle both registration and login verification code sending.
     """
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, required=True)  # 🔒 now required
+    password = serializers.CharField(write_only=True, required=True)  # now required
 
     def validate_email(self, value):
         allowed_domains = ['gmail.com', 'yahoo.com']
@@ -43,7 +43,7 @@ class SmartEmailSerializer(serializers.Serializer):
             user = CustomUser.objects.create_user(email=email, password=password)
             action = "register"
 
-        # 🔑 Generate verification code using VerificationCode model
+        # Generate verification code using VerificationCode model
         verification = VerificationCode.create_code_for_user(user)
 
         # send email
