@@ -55,7 +55,7 @@ class SmartSendCodeView(APIView):
                 if user.is_verified:
                     # Login flow → password must match
                     if not password or not user.check_password(password):
-                        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
                     action = "login"
                 else:
                     # Registration flow → password required
