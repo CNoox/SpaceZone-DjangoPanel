@@ -33,8 +33,10 @@ class SmartEmailSerializer(serializers.Serializer):
                 if not user.check_password(password):
                     raise serializers.ValidationError("Incorrect password")
                 action = "login"
-            elif not user.is_verified:
-                user = CustomUser.objects.create_user(email=email, password=password)
+            else:
+                # registration not completed, update password
+                user.set_password(password)
+                user.save()
                 action = "register"
 
         else:
