@@ -10,7 +10,7 @@ class SmartEmailSerializer(serializers.Serializer):
     Serializer to handle both registration and login verification code sending.
     """
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, required=True)  # now required
+    password = serializers.CharField(write_only=True, required=True)
 
     def validate_email(self, value):
         allowed_domains = ['gmail.com', 'yahoo.com']
@@ -33,11 +33,9 @@ class SmartEmailSerializer(serializers.Serializer):
                 if not user.check_password(password):
                     raise serializers.ValidationError("Incorrect password")
                 action = "login"
-            else:
-                # registration not completed, update password
-                user.set_password(password)
-                user.save()
-                action = "register"
+            elif not user.is_verified:
+                raise serializers.ValidationError("Account not verified. Please complete verify your email first.")
+
         else:
             # new registration
             user = CustomUser.objects.create_user(email=email, password=password)
@@ -54,7 +52,6 @@ class SmartEmailSerializer(serializers.Serializer):
             [email],
             fail_silently=False,
         )
-
         return action
 
 
@@ -90,3 +87,31 @@ class VerifyCodeSerializer(serializers.Serializer):
 
         # If this was a login, you can issue a JWT token in the view
         return data
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, data):
+        email = data.get("email")
+        user = CustomUser.objects.filter(email=email).first()
+        if not user:
+            raise serializers.ValidationError("User not found")
+        return user
+
+    def send_verification_code(self, user, email):
+        if user.is_verified:
+            raise serializers.ValidationError("Account already verified")
+
+        verification = VerificationCode.create_code_for_user(user)
+        action = "verify"
+
+        send_mail(
+            f'{action.capitalize()} Verification Code',
+            f'Your verification code is: {verification.code}',
+            os.getenv('EMAIL_HOST_USER'),
+            [email],
+            fail_silently=False,
+        )
+
+        return action
