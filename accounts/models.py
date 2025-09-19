@@ -3,10 +3,11 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 import secrets
+from rest_framework_simplejwt.tokens import AccessToken
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, password, **extra_fields):
         if not email:
             raise ValueError("Email must be set")
         email = self.normalize_email(email)
@@ -23,18 +24,19 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
+def user_directory_path(instance, filename):
+    return f"{instance.email}/profile/{filename}"
 
-class CustomUser(AbstractBaseUser, PermissionsMixin):
+class CustomUserModel(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=50, blank=True)
     last_name = models.CharField(max_length=50, blank=True)
-    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+    avatar = models.ImageField(upload_to=user_directory_path, null=True, blank=True)
     national_code = models.CharField(max_length=10, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
-
+    last_login = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    is_verified = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 
@@ -44,30 +46,54 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    def has_perm(self,perm,obj=None):
+        return True
 
-class VerificationCode(models.Model):
-    """
-    Stores email verification codes for users (login/register).
-    Each request generates a new record.
-    """
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="verification_codes")
-    code = models.CharField(max_length=6)
+    def has_module_perms(self,app_label):
+        return True
+
+
+
+class UserCodeModel(models.Model):
+    user = models.OneToOneField(CustomUserModel, on_delete=models.CASCADE, related_name='usercode')
+    code = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(default=timezone.now)
+    is_used = models.BooleanField(default=False)
 
-    def is_expired(self):
-        return timezone.now() > self.expires_at
+    REQUEST_INTERVAL = timedelta(seconds=30)
 
-    @staticmethod
-    def generate_code():
-        return str(secrets.randbelow(1000000)).zfill(6)
+    def seconds_until_next_code(self):
+        if not self.created_at:
+            return 0
+        remaining = (self.created_at + self.REQUEST_INTERVAL - timezone.now()).total_seconds()
+        return max(0, int(remaining))
 
-    @classmethod
-    def create_code_for_user(cls, user, minutes_valid=5):
-        code = cls.generate_code()
-        instance = cls.objects.create(
-            user=user,
-            code=code,
-            expires_at=timezone.now() + timedelta(minutes=minutes_valid)
-        )
-        return instance
+    def can_request_new(self):
+        return timezone.now() >= self.created_at + self.REQUEST_INTERVAL
+
+    def create_code(self):
+        if UserCodeModel.DoesNotExist:
+            self.code = str(secrets.randbelow(1000000)).zfill(6)
+            self.created_at = timezone.now()
+            self.expires_at = self.created_at + timedelta(minutes=5)
+            self.is_used = False
+            self.save()
+            return self.code
+        if self.can_request_new():
+            self.code = str(secrets.randbelow(1000000)).zfill(6)
+            self.created_at = timezone.now()
+            self.expires_at = self.created_at + timedelta(minutes=5)
+            self.is_used = False
+            self.save()
+            return self.code
+        return None
+    def expires_code(self):
+        if not self.created_at or not self.expires_at:
+            return True
+        return timezone.now() >= self.expires_at
+
+    def __str__(self):
+        return self.user.email
+
+

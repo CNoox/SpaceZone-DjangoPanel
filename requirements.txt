@@ -3,7 +3,8 @@ djangorestframework
 djangorestframework-simplejwt
 pillow
 python-dotenv
-gunicorn
-psycopg[binary]
-whitenoise
-drf_yasg
+password_strength
+pyyaml
+uritemplate
+inflection
+drf-spectacular

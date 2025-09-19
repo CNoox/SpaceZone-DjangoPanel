@@ -1,31 +1,18 @@
-# accounts/urls.py
 from django.urls import path
-from .views import SmartSendCodeView, VerifyEmailCodeView
-from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-
-schema_view = get_schema_view(
-    openapi.Info(
-        title="My API",
-        default_version='v1',
-        description="""
-My API provides a complete set of endpoints for authentication, user management, 
-and data operations. Designed with clarity and simplicity, this API allows developers 
-to quickly explore, test, and integrate features in a structured and interactive way. 
-
-- Fully documented with request and response examples
-- Supports JWT authentication for secure access
-- Compatible with OpenAPI 3.0 standards
-- Ideal for both frontend and backend integration
-""",
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
+from .views import UserVerifyCodeView,UserSendCodeView,UserPanelView
+from rest_framework_simplejwt.views import TokenRefreshView
+from django.conf import settings
+from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
-    path('auth/send-code/', SmartSendCodeView.as_view(), name='send-code'),
-    path('auth/verify-code/', VerifyEmailCodeView.as_view(), name='verify-code'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('auth/send-code/', UserSendCodeView.as_view(), name='send-code'),
+    path('auth/verify-code/', UserVerifyCodeView.as_view(), name='verify-code'),
+    path('panel/',UserPanelView.as_view(),name='user-panel'),
+    path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Optional UI:
+    path('schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

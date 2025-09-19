@@ -1,196 +1,142 @@
-from rest_framework.views import APIView
+from rest_framework import viewsets, status
+from .serializers import RegisterSerializer, LoginSerializer, UserPanelSerializer,UserCodeSerializer
 from rest_framework.response import Response
-from rest_framework import status, serializers
-from rest_framework_simplejwt.tokens import RefreshToken
-from .models import CustomUser, VerificationCode
-from .serializers import SmartEmailSerializer, VerifyCodeSerializer
+from permissions import IsNotAuth
+from rest_framework.views import APIView
+from .models import CustomUserModel, UserCodeModel
 from django.utils import timezone
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
+from datetime import timedelta
 
 
-class SmartSendCodeView(APIView):
+class UserSendCodeView(APIView):
     """
-    Send verification code for either registration or login.
-    Includes rate limiting:
-    - At least 30 seconds between requests
-    - Max 5 codes per day
-    """
+    Handles both **login** and **registration** flow using email + password.
 
-    @swagger_auto_schema(
-        operation_description="Send verification code for registration or login.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
-                "password": openapi.Schema(type=openapi.TYPE_STRING, example="strongpassword123"),
-            },
-            required=["email", "password"],
-        ),
-        responses={
-            200: openapi.Response(
-                description="Verification code sent successfully",
-                examples={
-                    "application/json": {
-                        "message": "Verification code sent for login"
-                    }
-                },
-            ),
-            400: openapi.Response(
-                description="Validation error",
-                examples={
-                    "application/json": {"error": "Password is required for registration"}
-                },
-            ),
-        },
-    )
+    - If user exists → validates credentials and sends a fresh verification code.
+    - If user does not exist → automatically registers a new account and issues a verification code.
+    - Protects against code spamming by enforcing a cooldown timer.
+
+    Responses:
+        - ✅ 201: Returns a new verification code
+        - ⚠️ 400: Missing fields or cooldown not expired
+        - ❌ 401: Invalid credentials
+    """
+    permission_classes = [IsNotAuth]
+    serializer_class = LoginSerializer
+
     def post(self, request):
-        serializer = SmartEmailSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            password = serializer.validated_data.get('password')
-
-            user = CustomUser.objects.filter(email=email).first()
-            if user:
-                if user.is_verified:
-                    # Login flow → password must match
-                    if not password or not user.check_password(password):
-                        return Response({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
-                    action = "login"
+        email = request.data.get('email')
+        password = request.data.get('password')
+        if not email or not password:
+            return Response({"detail": "Email and Password is required"}, status=400)
+        try:
+            user = CustomUserModel.objects.get(email=email)
+            # Login
+            ser_login = LoginSerializer(data=request.data)
+            if ser_login.is_valid():
+                user = ser_login.validated_data['user']
+                try:
+                    user_code = UserCodeModel.objects.get(user=user)
+                except UserCodeModel.DoesNotExist:
+                    user_code = UserCodeModel.objects.create(user=user)
+                    code = user_code.create_code()
+                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                if user_code.can_request_new():
+                    code = user_code.create_code()
+                    return Response({'code': code}, status=status.HTTP_201_CREATED)
                 else:
-                    # Registration flow → password required
-                    if not password:
-                        return Response({"error": "Password is required for registration"},
-                                        status=status.HTTP_400_BAD_REQUEST)
-                    action = "register"
+                    remaining = user_code.seconds_until_next_code()
+                    return Response({"detail": f"Cannot request code yet for {remaining}."}, status=400)
             else:
-                # New registration → password required
-                if not password:
-                    return Response({"error": "Password is required for registration"},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                action = "register"
-                user = CustomUser.objects.create_user(email=email, password=password)
+                return Response(ser_login.errors, status=status.HTTP_401_UNAUTHORIZED)
+        except CustomUserModel.DoesNotExist:
+            ser_reg = RegisterSerializer(data=request.data)
+            if ser_reg.is_valid():
+                user = ser_reg.save()
+                try:
+                    user_code = UserCodeModel.objects.get(user=user)
+                except UserCodeModel.DoesNotExist:
+                    user_code = UserCodeModel.objects.create(user=user)
+                    code = user_code.create_code()
+                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                if user_code.can_request_new():
+                    code = user_code.create_code()
+                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                else:
+                    remaining = user_code.seconds_until_next_code()
+                    return Response({"detail": f"Cannot request code yet for {remaining}."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response(ser_reg.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # Rate limiting
-            now = timezone.now()
-            last_code = VerificationCode.objects.filter(user=user).order_by("-created_at").first()
-            if last_code and (now - last_code.created_at).total_seconds() < 300:
-                return Response({"error": "Please wait at least 5 minutes before requesting another code"},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            today_count = VerificationCode.objects.filter(user=user, created_at__date=now.date()).count()
-            if today_count >= 5:
-                return Response({"error": "You have reached the daily limit of 5 verification codes"},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                # Generate & send verification code
-                verification_action = serializer.send_verification_code(email, password)
-                return Response({
-                    "message": f"Verification code sent for {verification_action}"
-                }, status=status.HTTP_200_OK)
-
-            except serializers.ValidationError as e:
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class VerifyEmailCodeView(APIView):
+class UserVerifyCodeView(APIView):
     """
-    Verify the code for registration or login.
-    - If registration: just mark user as verified (no token yet).
-    - If login: return JWT tokens.
-    """
+    Verifies a one-time **authentication code** and issues JWT tokens.
 
-    @swagger_auto_schema(
-        operation_description="Verify code for registration or login.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "email": openapi.Schema(type=openapi.TYPE_STRING, example="user@example.com"),
-                "code": openapi.Schema(type=openapi.TYPE_STRING, example="123456"),
-            },
-            required=["email", "code"],
-        ),
-        responses={
-            200: openapi.Response(
-                description="Successful verification",
-                examples={
-                    "application/json": {
-                        "action": "login",
-                        "user": {
-                            "email": "user@example.com",
-                            "first_name": "John",
-                            "last_name": "Doe",
-                            "avatar": "https://example.com/media/avatar.png",
-                            "national_code": "1234567890",
-                            "phone_number": "+49123456789",
-                        },
-                        "token": {
-                            "refresh": "jwt-refresh-token",
-                            "access": "jwt-access-token",
-                        },
-                    }
-                },
-            ),
-            400: openapi.Response(
-                description="Invalid or expired code",
-                examples={
-                    "application/json": {"error": "Invalid code"}
-                },
-            ),
-        },
-    )
+    Flow:
+        1. User submits a code received via email.
+        2. If the code is valid and not expired → returns `access` & `refresh` tokens.
+        3. Marks the code as used, preventing re-use.
+
+    Responses:
+        - ✅ 200: Returns `access` and `refresh` JWT tokens
+        - ❌ 400: Invalid, used, or expired code
+    """
+    permission_classes = [IsNotAuth]
+    serializer_class = UserCodeSerializer
     def post(self, request):
-        serializer = VerifyCodeSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            code = serializer.validated_data['code']
+        code = request.data.get("code")
+        try:
+            user_code = UserCodeModel.objects.get(code=code)
+            user = user_code.user
+            if user_code.is_used == True:
+                return Response({"error": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
+        except UserCodeModel.DoesNotExist:
+            return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+        if user_code.expires_code():
+            return Response({"error": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
+        user_code.is_used = True
+        user_code.save()
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        return Response({'access':access_token,"refresh": refresh_token},status=status.HTTP_200_OK)
 
-            user = CustomUser.objects.filter(email=email).first()
-            if not user:
-                return Response({"error": "User not found"}, status=status.HTTP_400_BAD_REQUEST)
+class UserPanelView(APIView):
+    """
+    Authenticated user’s **personal dashboard**.
 
-            verification = VerificationCode.objects.filter(user=user, code=code).order_by("-created_at").first()
-            if not verification:
-                return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+    Endpoints:
+        - `GET /panel/` → Returns user profile data.
+        - `PATCH /panel/` → Updates user profile fields (partial update supported).
+        - `DELETE /panel/` → Soft deletes the account (`is_active=False`).
 
-            if verification.is_expired():
-                return Response({"error": "Code expired"}, status=status.HTTP_400_BAD_REQUEST)
+    Permissions:
+        - Requires `IsAuthenticated` (JWT token).
 
-            if not user.is_verified:
-                # Registration complete
-                user.is_verified = True
-                user.save(update_fields=["is_verified"])
-                action = "registration"
-                response_data = {
-                    "action": action,
-                    "message": "Registration verified successfully. Please login."
-                }
-            else:
-                # Login success → issue JWT
-                action = "login"
-                refresh = RefreshToken.for_user(user)
-                response_data = {
-                    "action": action,
-                    "user": {
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "avatar": user.avatar.url if user.avatar else None,
-                        "national_code": user.national_code,
-                        "phone_number": user.phone_number
-                    },
-                    "token": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token)
-                    }
-                }
+    Responses:
+        - ✅ 200: Profile retrieved, updated, or deleted
+        - ❌ 400: Validation errors on update
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserPanelSerializer
+    def get(self,request):
+        person = request.user
+        ser_person = UserPanelSerializer(instance=person)
+        return Response(ser_person.data,status=status.HTTP_200_OK)
+    def patch(self,request):
+        person = request.user
+        person_data = request.data
+        ser_person = UserPanelSerializer(instance=person,data=person_data,partial=True)
+        if ser_person.is_valid():
+            ser_person.save()
+            return Response(ser_person.data,status=status.HTTP_200_OK)
+        return Response(ser_person.errors,status=status.HTTP_400_BAD_REQUEST)
 
-            # Consume the verification code
-            verification.delete()
-
-            return Response(response_data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def delete(self,request):
+        person = request.user
+        person.is_active = False
+        person.save()
+        return Response({'message': 'Account is deleted!'},status=status.HTTP_200_OK)

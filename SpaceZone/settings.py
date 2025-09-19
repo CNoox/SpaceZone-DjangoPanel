@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-af_z0&%+c$+&6k(vxe^*zj%jt_p%iv7nw3wn%krf7t71gr^e0k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False  # Set to True only for development
+DEBUG = True  # Set to True only for development
 
 # ALLOWED_HOSTS = ['localhost', '127.0.0.1','spacezone-djangopanel.onrender.com']  # Hosts allowed to serve this Django project
 
@@ -46,16 +46,16 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',  # JWT authentication
     'accounts',  # Custom user app
-    'drf_yasg',
+    'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise for static files
-    'django.contrib.sessions.middleware.SessionMiddleware',  # Session management
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',  # CSRF protection
-    'django.contrib.auth.middleware.AuthenticationMiddleware',  # User authentication
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -65,7 +65,7 @@ ROOT_URLCONF = 'SpaceZone.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Template directory
+        'DIRS': [],  # Template directory
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -82,23 +82,23 @@ WSGI_APPLICATION = 'SpaceZone.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',  # Using SQLite for development
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('DB_ENGINE'),
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',  # Using SQLite for development
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': os.getenv('DB_ENGINE'),
+#         'NAME': os.getenv('DB_NAME'),
+#         'USER': os.getenv('DB_USER'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),
+#         'HOST': os.getenv('DB_HOST'),
+#         'PORT': os.getenv('DB_PORT'),
+#     }
+# }
 
 
 # Password validation
@@ -106,16 +106,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -148,24 +148,72 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONOpenAPIRenderer'],
 }
 
 # Custom user model
-AUTH_USER_MODEL = 'accounts.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUserModel'
 
 # JWT settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),  # Lifetime of the Access Token
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Lifetime of the Access Token
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Lifetime of the Refresh Token
-    'ROTATE_REFRESH_TOKENS': True,  # Issue a new refresh token each time it's used
-    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist the previous token after rotation
+    'ROTATE_REFRESH_TOKENS': False,  # Issue a new refresh token each time it's used
+    'BLACKLIST_AFTER_ROTATION': False,  # Blacklist the previous token after rotation
 }
 
 
 # Email settings from environment variables
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')  # Your email address from .env
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Your email password/app password from .env
+
+MEDIA_URL = '/api/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': '🚀 Space Zone API',
+    'DESCRIPTION': """
+Welcome to the Space Zone API Documentation
+
+This documentation provides full access to all available API endpoints.
+Authentication is handled via JWT (Access/Refresh Tokens).
+
+Endpoints:
+- 🔑 Get code: `/api/auth/send-code/`
+- ✅ Verify code: `/api/auth/verify-code/`
+- ♻️ Refresh token: `/api/refresh/`
+- 👤 User panel: `/api/panel/`
+    """,
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': True,
+
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'displayRequestDuration': True,
+        'filter': True,
+        'docExpansion': 'none',
+        'persistAuthorization': True,
+    },
+
+    'REDOC_SETTINGS': {
+        'expandResponses': '200,201',
+        'hideDownloadButton': False,
+        'expandSingleSchemaField': True,
+        'scrollYOffset': 50,
+    },
+
+    'SECURITY': [
+        {'BearerAuth': []},
+    ],
+
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SORT_OPERATIONS': True,
+    'SORT_TAGS': 'alpha',
+}
