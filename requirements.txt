@@ -8,3 +8,4 @@ pyyaml
 uritemplate
 inflection
 drf-spectacular
+gunicorn
