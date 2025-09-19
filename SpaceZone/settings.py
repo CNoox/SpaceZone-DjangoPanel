@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-af_z0&%+c$+&6k(vxe^*zj%jt_p%iv7nw3wn%krf7t71gr^e0k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False  # Set to True only for development
+DEBUG = True  # Set to True only for development
 
 # ALLOWED_HOSTS = ['localhost', '127.0.0.1','spacezone-djangopanel.onrender.com']  # Hosts allowed to serve this Django project
 
@@ -37,7 +37,6 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1','spacezone-djangopanel.onrender.com']
 # Application definition
 
 INSTALLED_APPS = [
-    'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -83,23 +82,23 @@ WSGI_APPLICATION = 'SpaceZone.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',  # Using SQLite for development
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('DB_ENGINE'),
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',  # Using SQLite for development
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': os.getenv('DB_ENGINE'),
+#         'NAME': os.getenv('DB_NAME'),
+#         'USER': os.getenv('DB_USER'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),
+#         'HOST': os.getenv('DB_HOST'),
+#         'PORT': os.getenv('DB_PORT'),
+#     }
+# }
 
 
 # Password validation
