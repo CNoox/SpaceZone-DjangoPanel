@@ -4,8 +4,16 @@ djangorestframework-simplejwt
 pillow
 python-dotenv
 password_strength
+
 pyyaml
 uritemplate
 inflection
 drf-spectacular
-gunicorn
+
+django-grappelli
+
+# Database
+psycopg[binary]==3.2.10
+
+# Deployment
+gunicorn==21.2.0
