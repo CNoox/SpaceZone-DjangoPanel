@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',  # JWT authentication
     'accounts',  # Custom user app
-    'rest_framework_simplejwt.token_blacklist',
+    'rest_framework_simplejwt.token_blacklist',  # Blacklist app
     'drf_spectacular',
 ]
 

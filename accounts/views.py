@@ -1,12 +1,10 @@
 from rest_framework import viewsets, status
-from .serializers import RegisterSerializer, LoginSerializer, UserPanelSerializer,UserCodeSerializer
+from .serializers import RegisterSerializer, LoginSerializer, UserPanelSerializer, UserVerifyCodeSerializer ,SendCodeForgetUserSerializer ,UpdatePasswordSerializer
 from rest_framework.response import Response
 from permissions import IsNotAuth
 from rest_framework.views import APIView
 from .models import CustomUserModel, UserCodeModel
-from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from datetime import timedelta
 
@@ -78,31 +76,22 @@ class UserVerifyCodeView(APIView):
     Flow:
         1. User submits a code received via email.
         2. If the code is valid and not expired → returns `access` & `refresh` tokens.
-        3. Marks the code as used, preventing re-use.
 
     Responses:
         - ✅ 200: Returns `access` and `refresh` JWT tokens
         - ❌ 400: Invalid, used, or expired code
     """
     permission_classes = [IsNotAuth]
-    serializer_class = UserCodeSerializer
+    serializer_class = UserVerifyCodeSerializer
     def post(self, request):
-        code = request.data.get("code")
-        try:
-            user_code = UserCodeModel.objects.get(code=code)
-            user = user_code.user
-            if user_code.is_used == True:
-                return Response({"error": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
-        except UserCodeModel.DoesNotExist:
-            return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
-        if user_code.expires_code():
-            return Response({"error": "Invalid or expired code"}, status=status.HTTP_400_BAD_REQUEST)
-        user_code.is_used = True
-        user_code.save()
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
-        return Response({'access':access_token,"refresh": refresh_token},status=status.HTTP_200_OK)
+        ser_data = UserVerifyCodeSerializer(data=request.data)
+        if ser_data.is_valid():
+            user = CustomUserModel.objects.get(email=ser_data.validated_data['email'])
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            access_token.set_exp(lifetime=timedelta(minutes=15))
+            return Response({"access": str(access_token),"refresh": str(refresh)},status=status.HTTP_200_OK)
+        return Response(ser_data.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class UserPanelView(APIView):
     """
@@ -140,3 +129,54 @@ class UserPanelView(APIView):
         person.is_active = False
         person.save()
         return Response({'message': 'Account is deleted!'},status=status.HTTP_200_OK)
+
+class SendCodeForgetUserView(APIView):
+    """
+    Sends a one-time **authentication code** to the user for password reset.
+
+    Flow:
+        1. User submits their email.
+        2. If the email exists and a new code can be requested → generates & returns a code.
+        3. Code expires after a short time (e.g., 5 minutes).
+
+    Permissions:
+        - Requires `IsNotAuth` (user must NOT be authenticated).
+
+    Responses:
+        - ✅ 201: Code successfully generated and returned
+        - ❌ 400: Invalid email or request too soon
+    """
+    permission_classes = [IsNotAuth]
+    serializer_class = SendCodeForgetUserSerializer
+    def post(self,request):
+        ser_person = SendCodeForgetUserSerializer(data=request.data)
+        if ser_person.is_valid():
+            return Response({'code': ser_person.save()},status=status.HTTP_201_CREATED)
+        return Response(ser_person.errors,status=status.HTTP_400_BAD_REQUEST)
+
+class UpdatePasswordView(APIView):
+    """
+    Changes the authenticated user’s password.
+
+    Flow:
+        1. User provides new password (and confirmation).
+        2. Password policy is checked.
+        3. Password is updated and hashed.
+        4. All JWT tokens can be invalidated after the change.
+
+    Permissions:
+        - Requires `IsAuthenticated` (JWT token).
+
+    Responses:
+        - ✅ 200: Password successfully changed
+        - ❌ 400: Validation errors (e.g., weak password, mismatch)
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = UpdatePasswordSerializer
+
+    def patch(self,request):
+        ser_user = UpdatePasswordSerializer(instance=request.user,data=request.data)
+        if ser_user.is_valid():
+            ser_user.save()
+            return Response('Password changed.',status=status.HTTP_200_OK)
+        return Response(ser_user.errors,status=status.HTTP_400_BAD_REQUEST)

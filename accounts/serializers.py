@@ -65,3 +65,60 @@ class UserCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserCodeModel
         fields = ['code']
+
+class UserVerifyCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(required=True, write_only=True)
+    def validate(self,data):
+        user = CustomUserModel.objects.filter(email=data['email']).first()
+        if not user or not user.usercode.verify_code(data['code']):
+            raise serializers.ValidationError("Invalid or expired code")
+        return data
+
+
+class SendCodeForgetUserSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self,value):
+        user = CustomUserModel.objects.filter(email=value).first()
+        if not user:
+            raise serializers.ValidationError("Email is not exist.")
+        self.user = user
+        return value
+
+    def save(self):
+        if not self.user.usercode.can_request_new():
+            remaining = self.user.usercode.seconds_until_next_code()
+            raise serializers.ValidationError(f"Cannot request code yet for {remaining}.")
+        code = self.user.usercode.create_code()
+        return code
+
+class UpdatePasswordSerializer(serializers.ModelSerializer):
+    password2 = serializers.CharField(required=True,write_only=True)
+    class Meta:
+        model = CustomUserModel
+        fields = ['password','password2']
+        extra_kwargs = {'password': {'required': True, 'write_only': True},
+                        'password2': {'required': True, 'write_only': True}
+                        }
+    def validate_password(self,value):
+        policy = PasswordPolicy.from_names(
+            length=12,
+            uppercase=2,
+            numbers=4,
+            special=2,
+        )
+        error = policy.test(value)
+        if error:
+            raise ValidationError(f'Password is too weak: {error}')
+        return value
+
+    def validate(self,data):
+        if data['password'] != data['password2']:
+            raise serializers.ValidationError('Passwords is incorrect.')
+        return data
+
+    def update(self, instance, validated_data):
+        instance.set_password(validated_data['password'])
+        instance.save(update_fields=['password'])
+        return instance

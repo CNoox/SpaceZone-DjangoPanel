@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserVerifyCodeView,UserSendCodeView,UserPanelView
+from .views import UserVerifyCodeView,UserSendCodeView,UserPanelView,SendCodeForgetUserView ,UpdatePasswordView
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -13,6 +13,8 @@ urlpatterns = [
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     # Optional UI:
     path('schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('auth/forget/',SendCodeForgetUserView.as_view(),name='forget_password'),
+    path('auth/forget/set/',UpdatePasswordView.as_view(),name='set_password'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

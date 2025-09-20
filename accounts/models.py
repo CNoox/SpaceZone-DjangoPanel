@@ -3,7 +3,8 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 import secrets
-from rest_framework_simplejwt.tokens import AccessToken
+from django.conf import settings
+from django.contrib.auth.hashers import make_password, check_password
 
 
 class CustomUserManager(BaseUserManager):
@@ -55,8 +56,8 @@ class CustomUserModel(AbstractBaseUser, PermissionsMixin):
 
 
 class UserCodeModel(models.Model):
-    user = models.OneToOneField(CustomUserModel, on_delete=models.CASCADE, related_name='usercode')
-    code = models.IntegerField(default=0)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='usercode')
+    code = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=timezone.now)
     is_used = models.BooleanField(default=False)
@@ -74,25 +75,34 @@ class UserCodeModel(models.Model):
 
     def create_code(self):
         if UserCodeModel.DoesNotExist:
-            self.code = str(secrets.randbelow(1000000)).zfill(6)
+            raw_code  = str(secrets.randbelow(1000000)).zfill(6)
+            self.code = make_password(raw_code)
             self.created_at = timezone.now()
             self.expires_at = self.created_at + timedelta(minutes=5)
             self.is_used = False
             self.save()
-            return self.code
+            return raw_code
         if self.can_request_new():
-            self.code = str(secrets.randbelow(1000000)).zfill(6)
+            raw_code  = str(secrets.randbelow(1000000)).zfill(6)
+            self.code = make_password(raw_code)
             self.created_at = timezone.now()
             self.expires_at = self.created_at + timedelta(minutes=5)
             self.is_used = False
             self.save()
-            return self.code
+            return raw_code
         return None
     def expires_code(self):
         if not self.created_at or not self.expires_at:
             return True
         return timezone.now() >= self.expires_at
-
+    def verify_code(self,input_code):
+        if self.is_used or self.expires_code():
+            return False
+        if check_password(input_code,self.code):
+            self.is_used = True
+            self.save()
+            return True
+        return False
     def __str__(self):
         return self.user.email
 
