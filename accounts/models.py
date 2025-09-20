@@ -74,7 +74,7 @@ class UserCodeModel(models.Model):
         return timezone.now() >= self.created_at + self.REQUEST_INTERVAL
 
     def create_code(self):
-        if not self.user_id:
+        if UserCodeModel.DoesNotExist:
             raw_code  = str(secrets.randbelow(1000000)).zfill(6)
             self.code = make_password(raw_code)
             self.created_at = timezone.now()
