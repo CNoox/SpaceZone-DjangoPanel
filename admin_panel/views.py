@@ -106,7 +106,6 @@ class AdminPanelView(APIView):
     Flow:
         - GET: Returns the profile data of the requesting superuser.
         - PATCH: Updates the superuser's profile partially.
-        - DELETE: Soft deletes the account (`is_active=False`).
 
     Responses:
         - ✅ 200: Profile retrieved, updated, or deleted successfully.
@@ -129,11 +128,7 @@ class AdminPanelView(APIView):
         return Response(ser_person.errors,status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self,request):
-        person = request.user
-        person.is_active = False
-        person.save()
-        return Response({'message': 'Account is deleted!'},status=status.HTTP_200_OK)
-
+        return Response({"detail": "Method \"DELETE\" not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 class UserInformationViewSet(viewsets.ModelViewSet):
     """
     Manages **normal users** (non-superusers) by superusers.
