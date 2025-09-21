@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from .serializers import RegisterSerializer, LoginSerializer, UserPanelSerializer, UserVerifyCodeSerializer ,SendCodeForgetUserSerializer ,UpdatePasswordSerializer
 from rest_framework.response import Response
-from permissions import IsNotAuth
+from permissions import IsNotAuth,IsNotSuperUser
 from rest_framework.views import APIView
 from .models import CustomUserModel, UserCodeModel
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -29,7 +29,7 @@ class UserSendCodeView(APIView):
         email = request.data.get('email')
         password = request.data.get('password')
         if not email or not password:
-            return Response({"detail": "Email and Password is required"}, status=400)
+            return Response({"detail": "Email and Password is required"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user = CustomUserModel.objects.get(email=email)
             # Login
@@ -40,14 +40,26 @@ class UserSendCodeView(APIView):
                     user_code = UserCodeModel.objects.get(user=user)
                 except UserCodeModel.DoesNotExist:
                     user_code = UserCodeModel.objects.create(user=user)
+                    if user_code.user.is_superuser == True:
+                        return Response({    "non_field_errors": [
+        "Invalid email or password"
+    ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
                     return Response({'code': code}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
+                    if user_code.user.is_superuser == True:
+                        return Response({    "non_field_errors": [
+        "Invalid email or password"
+    ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
                     return Response({'code': code}, status=status.HTTP_201_CREATED)
                 else:
+                    if user_code.user.is_superuser == True:
+                        return Response({"non_field_errors": [
+                            "Invalid email or password"
+                        ]}, status=status.HTTP_401_UNAUTHORIZED)
                     remaining = user_code.seconds_until_next_code()
-                    return Response({"detail": f"Cannot request code yet for {remaining}."}, status=400)
+                    return Response({"detail": f"Cannot request code yet for {remaining}."}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response(ser_login.errors, status=status.HTTP_401_UNAUTHORIZED)
         except CustomUserModel.DoesNotExist:
@@ -87,6 +99,8 @@ class UserVerifyCodeView(APIView):
         ser_data = UserVerifyCodeSerializer(data=request.data)
         if ser_data.is_valid():
             user = CustomUserModel.objects.get(email=ser_data.validated_data['email'])
+            if user.is_superuser == True:
+                return Response({"detail":"HTTP_400_BAD_REQUEST"},status=status.HTTP_400_BAD_REQUEST)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             access_token.set_exp(lifetime=timedelta(minutes=15))
@@ -108,8 +122,8 @@ class UserPanelView(APIView):
     Responses:
         - ✅ 200: Profile retrieved, updated, or deleted
         - ❌ 400: Validation errors on update
-    """
-    permission_classes = [IsAuthenticated]
+        """
+    permission_classes = [IsNotSuperUser]
     serializer_class = UserPanelSerializer
     def get(self,request):
         person = request.user

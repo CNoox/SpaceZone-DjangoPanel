@@ -38,14 +38,14 @@ class CustomUserModel(AbstractBaseUser, PermissionsMixin):
     last_login = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-
+    is_superuser = models.BooleanField(default=False)
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     def __str__(self):
-        return self.email
+        return f'{self.email}'
 
     def has_perm(self,perm,obj=None):
         return True

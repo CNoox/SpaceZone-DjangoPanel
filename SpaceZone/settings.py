@@ -45,9 +45,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',  # JWT authentication
-    'accounts',  # Custom user app
     'rest_framework_simplejwt.token_blacklist',  # Blacklist app
     'drf_spectacular',
+    'accounts',  # Custom user app
+    'product',
+    'admin_panel',
 ]
 
 MIDDLEWARE = [
@@ -173,24 +175,45 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')  # Your email address from .env
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Your email password/app password from .env
 
-MEDIA_URL = '/api/media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
 SPECTACULAR_SETTINGS = {
     'TITLE': '🚀 Space Zone API',
     'DESCRIPTION': """
-Welcome to the Space Zone API Documentation
+🌌 **Welcome to Space Zone API**  
 
-This documentation provides full access to all available API endpoints.
-Authentication is handled via JWT (Access/Refresh Tokens).
+Navigate your **digital universe** with speed and security.  
+All authentication is handled via **JWT tokens** (Access & Refresh) for seamless access.
 
-Endpoints:
-- 🔑 Get code: `/api/auth/send-code/`
-- ✅ Verify code: `/api/auth/verify-code/`
-- ♻️ Refresh token: `/api/refresh/`
-- 👤 User panel: `/api/panel/`
-    """,
+### 🔑 User Authentication:
+- `/api/auth/send-code/` — Send login codes to users
+- `/api/auth/verify-code/` — Verify user login codes
+- `/api/refresh/` — Refresh JWT tokens
+- `/api/auth/panel/` — User profile and settings
+- `/api/auth/forget/` — Send password reset code
+- `/api/auth/forget/set/` — Update password
+
+### 🛡️ Admin Authentication:
+- `/api/admin/send-code/` — Send admin login codes
+- `/api/admin/verify-code/` — Verify admin login codes
+- `/api/admin/panel/` — Admin dashboard overview
+
+### 👥 Admin User Management:
+- `/api/admin/panel/users/` — List all normal users (GET)
+- `/api/admin/panel/users/{id}/` — Retrieve or partially update a user (GET/PATCH)
+- `/api/admin/panel/users/user_delete/` — Soft delete multiple users (POST)
+
+**Notes:**  
+- ❌ POST (create), PUT (update full), DELETE (destroy) are disabled for users in `UserInformationViewSet`.  
+- ✅ PATCH allowed for partial updates, POST `user_delete` for soft deletion.  
+- 200 ✅ success, 400 ❌ validation or missing IDs, 401/403 ❌ unauthorized  
+
+**Version:** 1.0.0 — Clean, fast, and ready for stellar integrations.
+
+Explore, integrate, and **own your Space Zone**.
+""",
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': True,
 

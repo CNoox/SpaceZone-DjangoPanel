@@ -59,7 +59,11 @@ class LoginSerializer(serializers.ModelSerializer):
 class UserPanelSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUserModel
-        fields = ['email','first_name','last_name','avatar','national_code','phone_number','last_login']
+        fields = ['id','email','first_name','last_name','avatar','national_code','phone_number','last_login','is_superuser']
+        extra_kwargs = {'email':{'required':False},
+                        'is_superuser': {'read_only':True},
+                        'last_login':{'read_only':True}
+                        }
 
 class UserCodeSerializer(serializers.ModelSerializer):
     class Meta:
