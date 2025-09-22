@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-af_z0&%+c$+&6k(vxe^*zj%jt_p%iv7nw3wn%krf7t71gr^e0k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True  # Set to True only for development
 
-# ALLOWED_HOSTS = ['localhost', '127.0.0.1','spacezone-djangopanel.onrender.com']  # Hosts allowed to serve this Django project
+# Hosts allowed to serve this Django project
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1','spacezone-djangopanel.onrender.com']
 
@@ -60,7 +60,15 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 
 ROOT_URLCONF = 'SpaceZone.urls'
 
@@ -135,10 +143,7 @@ USE_TZ = True  # Use timezone-aware datetimes
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -159,7 +164,7 @@ AUTH_USER_MODEL = 'accounts.CustomUserModel'
 
 # JWT settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Lifetime of the Access Token
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),  # Lifetime of the Access Token
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Lifetime of the Refresh Token
     'ROTATE_REFRESH_TOKENS': False,  # Issue a new refresh token each time it's used
     'BLACKLIST_AFTER_ROTATION': False,  # Blacklist the previous token after rotation
@@ -187,7 +192,9 @@ SPECTACULAR_SETTINGS = {
 Navigate your **digital universe** with speed and security.  
 All authentication is handled via **JWT tokens** (Access & Refresh) for seamless access.
 
-### 🔑 User Authentication:
+---
+
+### 🔑 User Authentication
 - `/api/auth/send-code/` — Send login codes to users
 - `/api/auth/verify-code/` — Verify user login codes
 - `/api/refresh/` — Refresh JWT tokens
@@ -195,20 +202,41 @@ All authentication is handled via **JWT tokens** (Access & Refresh) for seamless
 - `/api/auth/forget/` — Send password reset code
 - `/api/auth/forget/set/` — Update password
 
-### 🛡️ Admin Authentication:
+### 🛡️ Admin Authentication
 - `/api/admin/send-code/` — Send admin login codes
 - `/api/admin/verify-code/` — Verify admin login codes
 - `/api/admin/panel/` — Admin dashboard overview
 
-### 👥 Admin User Management:
+### 👥 Admin User Management
 - `/api/admin/panel/users/` — List all normal users (GET)
 - `/api/admin/panel/users/{id}/` — Retrieve or partially update a user (GET/PATCH)
 - `/api/admin/panel/users/user_delete/` — Soft delete multiple users (POST)
+- ❌ POST (create), PUT (update full), DELETE (destroy) are disabled for users in `UserInformationViewSet`
+- ✅ PATCH allowed for partial updates, POST `user_delete` for soft deletion
 
-**Notes:**  
-- ❌ POST (create), PUT (update full), DELETE (destroy) are disabled for users in `UserInformationViewSet`.  
-- ✅ PATCH allowed for partial updates, POST `user_delete` for soft deletion.  
-- 200 ✅ success, 400 ❌ validation or missing IDs, 401/403 ❌ unauthorized  
+### 📦 Admin Product Management
+- `/api/admin/panel/product/` — List and create products
+- `/api/admin/panel/product/{id}/` — Partial update or soft delete a product (PATCH/DELETE)
+- `/api/admin/panel/product/delete/` — Soft delete multiple products (POST)
+
+### 🏷️ Admin Category Management
+- `/api/admin/panel/category/` — List and create categories
+- `/api/admin/panel/category/{id}/` — Partial update or delete a category (PATCH/DELETE)
+- `/api/admin/panel/category/delete/` — Soft delete multiple categories (POST)
+- `/api/admin/category/select/` — Retrieve categories without children for dynamic select boxes in frontend
+- Supports optional `?search=<query>` for autocomplete/dynamic filtering
+
+### 💡 Frontend Notes
+- Use `/api/admin/category/select/` for dynamic select box in product forms
+- Supports search for large number of categories (autocomplete)
+- Pagination handled for users, products, and comments endpoints
+- Soft delete is implemented instead of hard delete for safety
+
+**Responses Summary:**
+- 200 ✅ success
+- 400 ❌ validation error or missing IDs
+- 401/403 ❌ unauthorized
+- 405 ❌ method not allowed
 
 **Version:** 1.0.0 — Clean, fast, and ready for stellar integrations.
 
@@ -240,3 +268,4 @@ Explore, integrate, and **own your Space Zone**.
     'SORT_OPERATIONS': True,
     'SORT_TAGS': 'alpha',
 }
+

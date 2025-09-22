@@ -15,3 +15,6 @@ psycopg[binary]==3.2.10
 
 # Deployment
 gunicorn==21.2.0
+
+
+whitenoise

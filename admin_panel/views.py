@@ -4,11 +4,15 @@ from rest_framework.response import Response
 from permissions import IsNotAuth,IsSuperUser
 from rest_framework.views import APIView
 from accounts.models import CustomUserModel, UserCodeModel
+from product.models import Product,Category
+from product.serializers import ProductCommentListSerializer,ProductSerializer,CategorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
-from pagination import CustomPageNumberPagination
+from django.core.paginator import Paginator
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from django.db.models import Min, Max
 
 # Create your views here.
 
@@ -147,8 +151,33 @@ class UserInformationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperUser]
     serializer_class = UserPanelSerializer
     queryset = CustomUserModel.objects.filter(is_superuser=False)
-    pagination_class = CustomPageNumberPagination
     metadata_class = None
+
+    def list(self,request):
+        search = request.query_params.get('search','')
+        queryset = self.queryset.filter(Q(email__contains=search) or Q(first_name__icontains=search) or Q(last_name__icontains=search) or Q(phone_number__icontains=search))
+        try:
+            page_num = int(request.query_params.get('page', 1))
+            page_offset = int(request.query_params.get('offset', 10))
+            if page_offset < 1:
+                page_offset = 1
+            elif page_offset > 100:
+                page_offset = 100
+        except:
+            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+
+        paginator = Paginator(queryset, page_offset)
+        try:
+            page = paginator.page(page_num)
+        except:
+            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+        ser_user = UserPanelSerializer(instance=page.object_list, many=True)
+        return Response({
+            "count_item": paginator.count,
+            "count_page": paginator.num_pages,
+            "current_page": page_num,
+            "results": ser_user.data
+        }, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         return Response({"detail": "Method \"POST\" not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -175,5 +204,225 @@ class UserInformationViewSet(viewsets.ModelViewSet):
         users_delete = CustomUserModel.objects.filter(id__in=ids,is_superuser=False)
         if not users_delete.exists():
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        count = users_delete.count()
         users_delete.update(is_active=False)
-        return Response({"detail": f"{users_delete.count()} users deactivated"})
+        return Response({"detail": f"{count} users deactivated"})
+
+class ProductInformationViewSet(viewsets.ViewSet):
+    """
+    Manage products by superusers.
+
+    Flow:
+        - GET (list): Retrieve a paginated list of products with search, price filter, and sorting
+        - POST (create): Create a new product
+        - PATCH (partial_update): Update specific fields of a product
+        - DELETE (destroy): Soft delete a product
+        - POST (`delete` action): Soft delete multiple products
+
+    Query Parameters (GET):
+        - search: Filter by title or description
+        - sort: newest, oldest, cheapest, expensive
+        - min_price: Minimum price
+        - max_price: Maximum price
+        - page: Page number
+        - offset: Items per page
+
+    Responses:
+        - ✅ 200: Successfully retrieved or updated products
+        - ✅ 201: Product created
+        - ❌ 400: Validation error or no IDs provided
+        - ❌ 404: Page not found
+    """
+
+    permission_classes = [IsSuperUser]
+    serializer_class = ProductCommentListSerializer
+    queryset = Product.objects.filter()
+    metadata_class = None
+    def list(self,request):
+        queryset = self.queryset
+
+        search = request.query_params.get('search','')
+        queryset = queryset.filter(Q(title__icontains=search) or Q(description__icontains=search))
+
+        sort = request.query_params.get('sort', 'newest')
+        if sort == 'newest':
+            queryset = queryset.order_by('-created_at')
+        elif sort == 'oldest':
+            queryset = queryset.order_by('created_at')
+        elif sort == 'cheapest':
+            queryset = queryset.order_by('price')
+        elif sort == 'expensive':
+            queryset = queryset.order_by('-price')
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+
+        if min_price is None:
+            min_price = Product.objects.aggregate(Min('price'))['price__min'] or 0
+        else:
+            min_price = float(min_price)
+
+        if max_price is None:
+            max_price = Product.objects.aggregate(Max('price'))['price__max'] or 0
+        else:
+            max_price = float(max_price)
+
+        queryset = queryset.filter(price__gte=min_price, price__lte=max_price)
+
+        queryset = queryset.filter(is_active=True)
+
+        try:
+            page_num = int(request.query_params.get('page', 1))
+            page_offset = int(request.query_params.get('offset', 10))
+            if page_offset < 1:
+                page_offset = 1
+            elif page_offset > 100:
+                page_offset = 100
+        except:
+            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+
+        paginator = Paginator(queryset, page_offset)
+        try:
+            page = paginator.page(page_num)
+        except:
+            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+        ser_product = ProductCommentListSerializer(instance=page.object_list, many=True)
+        return Response({
+            "count_item": paginator.count,
+            "count_page": paginator.num_pages,
+            "current_page": page_num,
+            "results": ser_product.data
+        }, status=status.HTTP_200_OK)
+
+    def partial_update(self,request,pk):
+        queryset = self.queryset
+        product = get_object_or_404(queryset,slug=pk)
+        ser_product = ProductCommentListSerializer(instance=product, data=request.data, partial=True)
+        if ser_product.is_valid():
+            ser_product.save()
+            return Response(ser_product.data,status=status.HTTP_200_OK)
+        return Response(ser_product.errors,status=status.HTTP_400_BAD_REQUEST)
+
+    def create(self,request):
+        ser_product = ProductSerializer(data=request.data)
+        if ser_product.is_valid():
+            ser_product.save()
+            return Response(ser_product.data,status=status.HTTP_201_CREATED)
+        return Response(ser_product.errors,status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self,request,pk):
+        queryset = self.queryset
+        product = get_object_or_404(queryset,slug=pk)
+        product.is_active = False
+        product.update()
+        return Response({"detail":'Product deleted.'},status=status.HTTP_200_OK)
+
+    @action(methods=['post'],detail=False)
+    def delete(self,request):
+        ids = request.data.get('ids',[])
+        if not ids:
+            return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        product_delete = Product.objects.filter(id__in=ids,is_active=True)
+        if not product_delete.exists():
+            return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        count = product_delete.count()
+        product_delete.update(is_active=False)
+        return Response({"detail": f"{count} product deleted"})
+
+class AdminCategoryViewSet(viewsets.ViewSet):
+    """
+    Manage categories by superusers.
+
+    Flow:
+        - GET (list): Retrieve all active categories
+        - POST (create): Create a new category
+        - PATCH (partial_update): Update specific fields of a category
+        - DELETE (destroy): Soft delete a category
+        - POST (`delete` action): Soft delete multiple categories
+
+    Responses:
+        - ✅ 200: Successfully retrieved or updated categories
+        - ✅ 201: Category created
+        - ❌ 400: Validation error or no IDs provided
+    """
+    permission_classes = [IsSuperUser]
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    metadata_class = None
+
+    def list(self,request):
+        queryset = self.queryset
+        category = queryset.filter(is_active=True)
+        ser_cat = CategorySerializer(instance=category,many=True)
+        return Response(ser_cat.data,status=status.HTTP_200_OK)
+
+    def create(self,request):
+        ser_cat = CategorySerializer(data=request.data)
+        if ser_cat.is_valid():
+            return Response(ser_cat.data,status=status.HTTP_201_CREATED)
+        return Response(ser_cat.errors,status=status.HTTP_400_BAD_REQUEST)
+
+    def partial_update(self,request,pk):
+        queryset = self.queryset
+        queryset = get_object_or_404(queryset,slug=pk)
+        category = queryset.filter(is_active=True)
+        ser_cat = CategorySerializer(instance=category,data=request.data,partial=True)
+        if ser_cat.is_valid():
+            ser_cat.save()
+            return Response(ser_cat.data, status=status.HTTP_201_CREATED)
+        return Response(ser_cat.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self,request,pk):
+        queryset = self.queryset
+        queryset = get_object_or_404(queryset,slug=pk)
+        queryset = queryset.filter(is_active=True)
+        queryset.is_active = False
+        queryset.update()
+        return Response({"detail":'Category deleted.'},status=status.HTTP_200_OK)
+
+    @action(methods=['post'],detail=False)
+    def delete(self,request):
+        ids = request.data.get('ids',[])
+        if not ids:
+            return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        category_delete = Category.objects.filter(id__in=ids,is_active=True)
+        if not category_delete.exists():
+            return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        count = category_delete.count()
+        category_delete.update(is_active=False)
+        return Response({"detail": f"{count} category deleted"})
+
+
+class AdminSelectCategoryViewSet(viewsets.ViewSet):
+    """
+    Provides a list of active categories without children for frontend select boxes.
+
+    Features:
+        - GET (list): Retrieve all active categories that have no children.
+        - Optional search: filter categories by title using `?search=<query>`.
+
+    Flow:
+        1. Frontend requests categories for a select box.
+        2. Only active categories without children are returned.
+        3. Optional `search` query parameter can filter by category title.
+
+    Responses:
+        - ✅ 200: Successfully retrieved categories.
+        - ❌ 400: Invalid query parameters (if implemented in the future).
+    """
+    permission_classes = [IsSuperUser]
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    metadata_class = None
+    http_method_names = ['get']
+    def list(self,request):
+        queryset = self.queryset
+        category = queryset.filter(is_active=True)
+        category = category.filter(children__isnull = True)
+        search = request.query_params.get('search','')
+        if search:
+            category = category.filter(title__icontains=search)
+        ser_cat = CategorySerializer(instance=category,many=True)
+        return Response(ser_cat.data,status=status.HTTP_200_OK)
