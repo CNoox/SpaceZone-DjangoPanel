@@ -50,7 +50,7 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -63,7 +63,7 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -88,7 +88,7 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -97,7 +97,7 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -191,7 +191,15 @@ class SendCodeForgetUserView(APIView):
     def post(self,request):
         ser_person = SendCodeForgetUserSerializer(data=request.data)
         if ser_person.is_valid():
-            return Response({'code': ser_person.save()},status=status.HTTP_201_CREATED)
+            email = ser_person.validated_data['email']
+            code = ser_person.save()
+            send_mail(
+                subject="Verification-Code",
+                message=f"your auth code: {code}",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+            )
+            return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
         return Response(ser_person.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class UpdatePasswordView(APIView):
