@@ -194,3 +194,25 @@ class UpdatePasswordView(APIView):
             ser_user.save()
             return Response('Password changed.',status=status.HTTP_200_OK)
         return Response(ser_user.errors,status=status.HTTP_400_BAD_REQUEST)
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self,request):
+        try:
+            refresh_token = request.data.get("refresh")
+            if not refresh_token:
+                return Response(
+                    {"detail": "Enter your refresh-code."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(
+                {"detail": "You are logout!"},
+                status=status.HTTP_200_OK
+            )
+        except:
+            return Response(
+                {"detail": "Your token is already blocked."},
+                status=status.HTTP_400_BAD_REQUEST
+            )

@@ -1,9 +1,10 @@
 
-from rest_framework import viewsets,status
+from rest_framework import viewsets,status,views
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from .models import Product
-from .serializers import ProductCommentListSerializer,ProductCommentSerializer
+from permissions import IsOwnerOrReadOnly
+from .models import Product,ProductComment,Category
+from .serializers import ProductCommentListSerializer,CommentSerializer,UserCategorySerializer
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db.models import Min, Max
@@ -74,26 +75,37 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         queryset = queryset.filter(price__gte=min_price, price__lte=max_price)
 
-        queryset = queryset.filter(show_item=True)
-
-        queryset = queryset.filter(is_active=True)
+        queryset = queryset.filter(Q(show_item=True) and Q(is_active=True))
 
         try:
             page_num = int(request.query_params.get('page', 1))
             page_offset = int(request.query_params.get('offset', 10))
-            if page_offset < 1:
-                page_offset = 1
-            elif page_offset > 100:
-                page_offset = 100
         except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
+
+        sort = request.query_params.get('sort','')
+        if sort == '-created_at' or sort:
+            queryset = queryset.order_by('-created_at')
+        if sort == 'created_at':
+            queryset = queryset.order_by('created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
+
+
+        if page_offset < 1:
+            page_offset = 1
+        elif page_offset > 100:
+            page_offset = 100
 
         paginator = Paginator(queryset, page_offset)
-        try:
-            page = paginator.page(page_num)
-        except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
-        ser_product = ProductCommentListSerializer(instance=page.object_list, many=True)
+
+        if page_num < 1:
+            page_num = 1
+        if page_num > paginator.num_pages:
+            page_num = paginator.num_pages
+        page = paginator.page(page_num)
+
+        ser_product = ProductCommentListSerializer(instance=page, many=True)
         return Response({
             "count_item": paginator.count,
             "count_page": paginator.num_pages,
@@ -118,8 +130,10 @@ class CommentViewsSet(viewsets.ViewSet):
         - ✅ 200: Successfully retrieved comments with pagination info
         - ❌ 404: Page not found
     """
-    http_method_names = ['get']
+    permission_classes = [IsOwnerOrReadOnly]
+    http_method_names = ['get','patch']
     queryset = Product.objects.all()
+    serializer_class = CommentSerializer
     def retrieve(self,request,slug):
         product = get_object_or_404(self.queryset, slug=slug)
         comments = product.comments.all()
@@ -127,20 +141,32 @@ class CommentViewsSet(viewsets.ViewSet):
         try:
             page_num = int(request.query_params.get('page', 1))
             page_offset = int(request.query_params.get('offset', 10))
-            if page_offset < 1:
-                page_offset = 1
-            elif page_offset > 100:
-                page_offset = 100
         except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
 
-        paginator = Paginator(comments, page_offset)
-        try:
-            page = paginator.page(page_num)
-        except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+        sort = request.query_params.get('sort','')
+        if sort == '-created_at' or sort:
+            comments = comments.order_by('-created_at')
+        if sort == 'created_at':
+            comments = comments.order_by('created_at')
+        else:
+            comments = comments.order_by('-created_at')
 
-        ser_comment = ProductCommentSerializer(instance=page.object_list, many=True)
+
+        if page_offset < 1:
+            page_offset = 1
+        elif page_offset > 100:
+            page_offset = 100
+
+        paginator = Paginator(product, page_offset)
+
+        if page_num < 1:
+            page_num = 1
+        if page_num > paginator.num_pages:
+            page_num = paginator.num_pages
+        page = paginator.page(page_num)
+
+        ser_comment = CommentSerializer(instance=page.object_list, many=True)
         return Response({
             "count_item": paginator.count,
             "count_page": paginator.num_pages,
@@ -148,7 +174,76 @@ class CommentViewsSet(viewsets.ViewSet):
             "results": ser_comment.data
         }, status=status.HTTP_200_OK)
 
+    def partial_update(self,request,slug,pk):
+        product = get_object_or_404(self.queryset,slug=slug)
+        comments = get_object_or_404(product.comments,pk=pk)
+        if request.user != comments.author and not request.user.is_superuser:
+            return Response('You dont have access to this content!')
+        ser = CommentSerializer(instance=comments,data=request.data,partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data,status=status.HTTP_200_OK)
+        return Response(ser.errors,status=status.HTTP_400_BAD_REQUEST)
 
 
+class CategoryView(views.APIView):
+    permission_classes = [AllowAny]
+    serializer_class = UserCategorySerializer
+    def get(self,request):
+        category = Category.objects.filter(parent__isnull=True)
+        ser_cat = UserCategorySerializer(instance=category,many=True)
+        return Response(ser_cat.data,status=status.HTTP_200_OK)
+
+class CategoryProductView(views.APIView):
+    permission_classes = [AllowAny]
+    serializer_class = ProductCommentListSerializer
+    def get(self, request, slug):
+        category = get_object_or_404(Category, slug=slug)
+
+        def get_cat(cat):
+            id_cat = [cat.id]
+            for child in cat.children.all():
+                id_cat.extend(get_cat(child))
+            return id_cat
+
+        cat_id = get_cat(category)
+
+        product = Product.objects.filter(category_id__in=cat_id)
+
+        try:
+            page_num = int(request.query_params.get('page', 1))
+            page_offset = int(request.query_params.get('offset', 10))
+        except:
+            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
+
+        sort = request.query_params.get('sort','')
+        if sort == '-created_at' or sort:
+            product = product.order_by('-created_at')
+        if sort == 'created_at':
+            product = product.order_by('created_at')
+        else:
+            product = product.order_by('-created_at')
+
+
+        if page_offset < 1:
+            page_offset = 1
+        elif page_offset > 100:
+            page_offset = 100
+
+        paginator = Paginator(product, page_offset)
+
+        if page_num < 1:
+            page_num = 1
+        if page_num > paginator.num_pages:
+            page_num = paginator.num_pages
+        page = paginator.page(page_num)
+
+        ser_pro = ProductCommentListSerializer(instance=paginator.page(page_num),many=True)
+        return Response({
+            "count_item": paginator.count,
+            "count_page": paginator.num_pages,
+            "current_page": page_num,
+            "results": ser_pro.data
+        }, status=status.HTTP_200_OK)
 
 

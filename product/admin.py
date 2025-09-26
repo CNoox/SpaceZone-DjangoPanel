@@ -1,14 +1,12 @@
 from django.contrib import admin
-from .models import Product,Category,Order,OrderItem,Attribute,ProductAttributeValue,ProductComment
+from .models import Product,Category,ProductComment,ProductBuyCheck,AttributeProduct,AttributeValueProduct
 
 # Register your models here.
 admin.site.register(Category)
-admin.site.register(Order)
-admin.site.register(OrderItem)
-admin.site.register(Attribute)
-admin.site.register(ProductAttributeValue)
-
+admin.site.register(ProductBuyCheck)
 admin.site.register(ProductComment)
+admin.site.register(AttributeProduct)
+admin.site.register(AttributeValueProduct)
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):

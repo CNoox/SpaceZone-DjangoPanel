@@ -5,7 +5,7 @@ from permissions import IsNotAuth,IsSuperUser
 from rest_framework.views import APIView
 from accounts.models import CustomUserModel, UserCodeModel
 from product.models import Product,Category
-from product.serializers import ProductCommentListSerializer,ProductSerializer,CategorySerializer
+from product.serializers import ProductCommentListSerializer,ProductSerializer,UserCategorySerializer,CategorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
 from django.core.paginator import Paginator
@@ -156,22 +156,24 @@ class UserInformationViewSet(viewsets.ModelViewSet):
     def list(self,request):
         search = request.query_params.get('search','')
         queryset = self.queryset.filter(Q(email__contains=search) or Q(first_name__icontains=search) or Q(last_name__icontains=search) or Q(phone_number__icontains=search))
+
         try:
             page_num = int(request.query_params.get('page', 1))
             page_offset = int(request.query_params.get('offset', 10))
-            if page_offset < 1:
-                page_offset = 1
-            elif page_offset > 100:
-                page_offset = 100
         except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
 
+        if page_offset < 1:
+            page_offset = 1
+        elif page_offset > 100:
+            page_offset = 100
         paginator = Paginator(queryset, page_offset)
-        try:
-            page = paginator.page(page_num)
-        except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
-        ser_user = UserPanelSerializer(instance=page.object_list, many=True)
+        if page_num < 1:
+            page_num = 1
+        if page_num > paginator.num_pages:
+            page_num = paginator.num_pages
+        page = paginator.page(page_num)
+        ser_user = UserPanelSerializer(instance=page, many=True)
         return Response({
             "count_item": paginator.count,
             "count_page": paginator.num_pages,
@@ -276,19 +278,22 @@ class ProductInformationViewSet(viewsets.ViewSet):
         try:
             page_num = int(request.query_params.get('page', 1))
             page_offset = int(request.query_params.get('offset', 10))
-            if page_offset < 1:
-                page_offset = 1
-            elif page_offset > 100:
-                page_offset = 100
         except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
+
+        if page_offset < 1:
+            page_offset = 1
+        elif page_offset > 100:
+            page_offset = 100
 
         paginator = Paginator(queryset, page_offset)
-        try:
-            page = paginator.page(page_num)
-        except:
-            return Response({"detail": "PAGE_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
-        ser_product = ProductCommentListSerializer(instance=page.object_list, many=True)
+
+        if page_num < 1:
+            page_num = 1
+        if page_num > paginator.num_pages:
+            page_num = paginator.num_pages
+        page = paginator.page(page_num)
+        ser_product = ProductCommentListSerializer(instance=page, many=True)
         return Response({
             "count_item": paginator.count,
             "count_page": paginator.num_pages,
@@ -355,20 +360,21 @@ class AdminCategoryViewSet(viewsets.ViewSet):
     def list(self,request):
         queryset = self.queryset
         category = queryset.filter(is_active=True)
-        ser_cat = CategorySerializer(instance=category,many=True)
+        category = category.filter(parent__isnull=True)
+        ser_cat = UserCategorySerializer(instance=category, many=True)
         return Response(ser_cat.data,status=status.HTTP_200_OK)
 
     def create(self,request):
         ser_cat = CategorySerializer(data=request.data)
         if ser_cat.is_valid():
+            ser_cat.save()
             return Response(ser_cat.data,status=status.HTTP_201_CREATED)
         return Response(ser_cat.errors,status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self,request,pk):
         queryset = self.queryset
-        queryset = get_object_or_404(queryset,slug=pk)
-        category = queryset.filter(is_active=True)
-        ser_cat = CategorySerializer(instance=category,data=request.data,partial=True)
+        category = get_object_or_404(queryset,slug=pk)
+        ser_cat = CategorySerializer(instance=category, data=request.data, partial=True)
         if ser_cat.is_valid():
             ser_cat.save()
             return Response(ser_cat.data, status=status.HTTP_201_CREATED)
@@ -377,9 +383,10 @@ class AdminCategoryViewSet(viewsets.ViewSet):
     def destroy(self,request,pk):
         queryset = self.queryset
         queryset = get_object_or_404(queryset,slug=pk)
-        queryset = queryset.filter(is_active=True)
+        if queryset.is_active == False:
+            return Response("BAD_REQUEST",status.HTTP_400_BAD_REQUEST)
         queryset.is_active = False
-        queryset.update()
+        queryset.save()
         return Response({"detail":'Category deleted.'},status=status.HTTP_200_OK)
 
     @action(methods=['post'],detail=False)
@@ -414,15 +421,16 @@ class AdminSelectCategoryViewSet(viewsets.ViewSet):
     """
     permission_classes = [IsSuperUser]
     queryset = Category.objects.all()
-    serializer_class = CategorySerializer
+    serializer_class = UserCategorySerializer
     metadata_class = None
     http_method_names = ['get']
     def list(self,request):
         queryset = self.queryset
         category = queryset.filter(is_active=True)
-        category = category.filter(children__isnull = True)
+        category = category.filter(parent__isnull = True)
         search = request.query_params.get('search','')
         if search:
             category = category.filter(title__icontains=search)
-        ser_cat = CategorySerializer(instance=category,many=True)
+        ser_cat = UserCategorySerializer(instance=category, many=True)
         return Response(ser_cat.data,status=status.HTTP_200_OK)
+

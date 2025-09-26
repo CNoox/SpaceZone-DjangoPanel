@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'accounts',  # Custom user app
     'product',
     'admin_panel',
+    'orders',
 ]
 
 MIDDLEWARE = [
@@ -61,7 +62,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    # 'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 STATIC_URL = 'static/'
@@ -166,8 +167,8 @@ AUTH_USER_MODEL = 'accounts.CustomUserModel'
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=30),  # Lifetime of the Access Token
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Lifetime of the Refresh Token
-    'ROTATE_REFRESH_TOKENS': False,  # Issue a new refresh token each time it's used
-    'BLACKLIST_AFTER_ROTATION': False,  # Blacklist the previous token after rotation
+    'ROTATE_REFRESH_TOKENS': True,  # Issue a new refresh token each time it's used
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist the previous token after rotation
 }
 
 
