@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product,Category,ProductComment,AttributeProduct,AttributeValueProduct
+from .models import Product,Category,ProductComment
 
 
 class ProductCommentListSerializer(serializers.ModelSerializer):
@@ -7,13 +7,14 @@ class ProductCommentListSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
 
     class Meta:
+
         model = Product
         fields = '__all__'
         extra_field = {'latest_comments','category'}
 
     def get_category(self,obj):
         category = obj.category
-        return UserCategorySerializer(instance=category).data
+        return UserCategorySetSerializer(instance=category).data
 
     def get_latest_comments(self, obj):
         comments = obj.comments.order_by('-created_at')[:3]
@@ -46,6 +47,18 @@ class ProductSerializer(serializers.ModelSerializer):
             'status':{'required':True},
         }
 
+class UserCategorySetSerializer(serializers.ModelSerializer):
+    parent = serializers.SerializerMethodField()
+    class Meta:
+        model = Category
+        fields = ['title','slug','is_active','parent']
+
+    def get_parent(self,obj):
+        parent = obj.parent
+        if parent:
+            return UserCategorySetSerializer(instance=parent).data
+        return None
+
 class UserCategorySerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
     class Meta:
@@ -62,14 +75,4 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {'slug':{'read_only':True,},
                         'is_active':{'default':True}}
-
-class AttributeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AttributeProduct
-        fields = '__all__'
-
-class AttributeValueSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AttributeValueProduct
-        fields = '__all__'
 

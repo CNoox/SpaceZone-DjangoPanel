@@ -56,7 +56,7 @@ class SubItemView(views.APIView):
             if not exist_item:
                 return Response({'detail': 'Your item is not exist'}, status=status.HTTP_400_BAD_REQUEST)
             if  exist_item.quantity <= 1:
-                exist_item.delete()
+                exist_item.delete(  )
                 return Response({'detail': 'Your item is deleted'}, status=status.HTTP_200_OK)
             exist_item.quantity -= 1
             exist_item.save()

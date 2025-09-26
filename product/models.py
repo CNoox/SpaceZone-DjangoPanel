@@ -69,23 +69,3 @@ class ProductComment(models.Model):
     def __str__(self):
         return f"{self.author.email} - {self.text_comment[:30]}"
 
-
-class ProductBuyCheck(models.Model):
-    product = models.ForeignKey(Product,on_delete=models.PROTECT,related_name='buy_check')
-    user = models.ForeignKey(CustomUserModel,on_delete=models.CASCADE,related_name='buy_check')
-    is_success = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f'{self.user.email} - {self.product.title}'
-
-
-class AttributeProduct(models.Model):
-    title = models.CharField(max_length=100)
-    product = models.ForeignKey(Product,on_delete=models.CASCADE,related_name='attrs')
-
-    def __str__(self):
-        return f'{self.title} - {self.product}'
-
-class AttributeValueProduct(models.Model):
-    value = models.CharField(max_length=50)
-    attr = models.ForeignKey(AttributeProduct,on_delete=models.CASCADE,related_name='value')

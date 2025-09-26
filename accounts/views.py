@@ -7,6 +7,8 @@ from .models import CustomUserModel, UserCodeModel
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from datetime import timedelta
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 class UserSendCodeView(APIView):
@@ -45,14 +47,26 @@ class UserSendCodeView(APIView):
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
                     if user_code.user.is_superuser == True:
                         return Response({    "non_field_errors": [
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
                     if user_code.user.is_superuser == True:
                         return Response({"non_field_errors": [
@@ -71,10 +85,22 @@ class UserSendCodeView(APIView):
                 except UserCodeModel.DoesNotExist:
                     user_code = UserCodeModel.objects.create(user=user)
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
                     remaining = user_code.seconds_until_next_code()
                     return Response({"detail": f"Cannot request code yet for {remaining}."}, status=status.HTTP_400_BAD_REQUEST)

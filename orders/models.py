@@ -23,17 +23,23 @@ class Order(models.Model):
             self.user = request.user
             self.save()
 
+    def get_total_price(self):
+        return sum(item.get_cost for item in self.items)
+
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order,on_delete=models.CASCADE,related_name='item')
+    order = models.ForeignKey(Order,on_delete=models.CASCADE,related_name='items')
     product = models.ForeignKey(Product,on_delete=models.CASCADE,related_name='order_items')
     order_at = models.DateTimeField(auto_now_add=True)
-    quantity = models.PositiveIntegerField(default=0,null=True,blank=True)
+    quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
         return self.product.title + '-' + str(self.quantity)
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.order.total_item = sum(i.quantity for i in self.order.item.all())
-        self.order.total_price = sum(i.product.price * i.quantity for i in self.order.item.all())
-        self.order.save()
+    # def save(self, *args, **kwargs):
+    #     super().save(*args, **kwargs)
+    #     self.order.total_item = sum(i.quantity for i in self.order.item.all())
+    #     self.order.total_price = sum(i.product.price * i.quantity for i in self.order.item.all())
+    #     self.order.save()
+
+    def get_cost(self):
+        return self.product.price * self.quantity

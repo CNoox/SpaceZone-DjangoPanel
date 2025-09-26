@@ -13,6 +13,8 @@ from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.db.models import Min, Max
+from django.core.mail import send_mail
+from django.conf import settings
 
 # Create your views here.
 
@@ -53,14 +55,26 @@ class AdminSendCodeView(APIView):
                             "Invalid email or password"
                         ]}, status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
                     if user_code.user.is_superuser == False:
                         return Response({"non_field_errors": [
                             "Invalid email or password"
                         ]}, status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    return Response({'code': code}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject="Verification-Code",
+                        message=f"your auth code: {code}",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                    )
+                    return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
                     if user_code.user.is_superuser == False:
                         return Response({"non_field_errors": [
