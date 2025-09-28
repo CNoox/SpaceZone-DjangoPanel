@@ -7,20 +7,16 @@ class ProductCommentListSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
 
     class Meta:
-
         model = Product
         fields = '__all__'
-        extra_field = {'latest_comments','category'}
-
-    def get_category(self,obj):
-        category = obj.category
-        return UserCategorySetSerializer(instance=category).data
 
     def get_latest_comments(self, obj):
         comments = obj.comments.order_by('-created_at')[:3]
-        if comments:
-            return ProductCommentSerializer(instance=comments, many=True).data
-        return None
+        return ProductCommentSerializer(comments, many=True).data if comments else []
+
+    def get_category(self, obj):
+        category = obj.category
+        return UserCategorySetSerializer(category).data if category else None
 
 
 
