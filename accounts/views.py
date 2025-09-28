@@ -50,9 +50,8 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
@@ -64,9 +63,8 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
@@ -90,9 +88,8 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
@@ -100,9 +97,8 @@ class UserSendCodeView(APIView):
                     send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=settings.EMAIL_HOST_USER,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:

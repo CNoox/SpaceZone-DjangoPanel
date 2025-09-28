@@ -60,7 +60,6 @@ class AdminSendCodeView(APIView):
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
@@ -74,7 +73,6 @@ class AdminSendCodeView(APIView):
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
-                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
