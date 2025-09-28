@@ -197,33 +197,35 @@ class CategoryView(views.APIView):
 class CategoryProductView(views.APIView):
     permission_classes = [AllowAny]
     serializer_class = ProductCommentListSerializer
+
     def get(self, request, slug):
         category = get_object_or_404(Category, slug=slug)
 
-        def get_cat(cat):
-            id_cat = [cat.id]
-            for child in cat.children.all():
-                id_cat.extend(get_cat(child))
-            return id_cat
+        def get_cat_ids(cat):
+            ids = []
+            queue = [cat]
+            while queue:
+                current = queue.pop(0)
+                ids.append(current.id)
+                queue.extend(current.children.all())
+            return ids
 
-        cat_id = get_cat(category)
-
+        cat_id = get_cat_ids(category)
         product = Product.objects.filter(category_id__in=cat_id)
 
         try:
             page_num = int(request.query_params.get('page', 1))
             page_offset = int(request.query_params.get('offset', 10))
         except:
-            return Response({"detail": "please right write offset or page"},status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "please right write offset or page"}, status=status.HTTP_400_BAD_REQUEST)
 
-        sort = request.query_params.get('sort','')
+        sort = request.query_params.get('sort', '')
         if sort == '-created_at' or sort:
             product = product.order_by('-created_at')
-        if sort == 'created_at':
+        elif sort == 'created_at':
             product = product.order_by('created_at')
         else:
             product = product.order_by('-created_at')
-
 
         if page_offset < 1:
             page_offset = 1
@@ -234,11 +236,11 @@ class CategoryProductView(views.APIView):
 
         if page_num < 1:
             page_num = 1
-        if page_num > paginator.num_pages:
+        elif page_num > paginator.num_pages:
             page_num = paginator.num_pages
         page = paginator.page(page_num)
 
-        ser_pro = ProductCommentListSerializer(instance=paginator.page(page_num),many=True)
+        ser_pro = ProductCommentListSerializer(instance=page.object_list, many=True)
         return Response({
             "count_item": paginator.count,
             "count_page": paginator.num_pages,
