@@ -9,7 +9,14 @@ from rest_framework.permissions import IsAuthenticated
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
+import threading
 
+def send_email_async(subject, message, from_email, recipient_list):
+    threading.Thread(
+        target=send_mail,
+        args=(subject, message, from_email, recipient_list),
+        kwargs={"fail_silently": False}
+    ).start()
 
 class UserSendCodeView(APIView):
     """
@@ -47,10 +54,10 @@ class UserSendCodeView(APIView):
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_mail(
+                    send_email_async(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.EMAIL_HOST_USER,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -60,10 +67,10 @@ class UserSendCodeView(APIView):
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_mail(
+                    send_email_async(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.EMAIL_HOST_USER,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -85,19 +92,19 @@ class UserSendCodeView(APIView):
                 except UserCodeModel.DoesNotExist:
                     user_code = UserCodeModel.objects.create(user=user)
                     code = user_code.create_code()
-                    send_mail(
+                    send_email_async(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.EMAIL_HOST_USER,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
                     code = user_code.create_code()
-                    send_mail(
+                    send_email_async(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
-                        from_email=settings.EMAIL_HOST_USER,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
@@ -193,10 +200,10 @@ class SendCodeForgetUserView(APIView):
         if ser_person.is_valid():
             email = ser_person.validated_data['email']
             code = ser_person.save()
-            send_mail(
+            send_email_async(
                 subject="Verification-Code",
                 message=f"your auth code: {code}",
-                from_email=settings.EMAIL_HOST_USER,
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
             )
             return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
