@@ -12,11 +12,13 @@ from django.conf import settings
 import threading
 
 def send_email_async(subject, message, from_email, recipient_list):
-    threading.Thread(
+    t = threading.Thread(
         target=send_mail,
         args=(subject, message, from_email, recipient_list),
-        kwargs={"fail_silently": False}
-    ).start()
+        kwargs={"fail_silently": False},
+        daemon=True
+    )
+    t.start()
 
 class UserSendCodeView(APIView):
     """
