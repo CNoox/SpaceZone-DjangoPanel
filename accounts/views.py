@@ -9,16 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
-import threading
 
-def send_email_async(subject, message, from_email, recipient_list):
-    t = threading.Thread(
-        target=send_mail,
-        args=(subject, message, from_email, recipient_list),
-        kwargs={"fail_silently": False},
-        daemon=True
-    )
-    t.start()
 
 class UserSendCodeView(APIView):
     """
@@ -206,10 +197,10 @@ class SendCodeForgetUserView(APIView):
         if ser_person.is_valid():
             email = ser_person.validated_data['email']
             code = ser_person.save()
-            send_email_async(
+            send_mail(
                 subject="Verification-Code",
                 message=f"your auth code: {code}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
+                from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
             )
             return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
