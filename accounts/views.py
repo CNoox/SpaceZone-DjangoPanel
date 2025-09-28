@@ -56,11 +56,12 @@ class UserSendCodeView(APIView):
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
@@ -69,11 +70,12 @@ class UserSendCodeView(APIView):
         "Invalid email or password"
     ]},status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
@@ -94,20 +96,22 @@ class UserSendCodeView(APIView):
                 except UserCodeModel.DoesNotExist:
                     user_code = UserCodeModel.objects.create(user=user)
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:

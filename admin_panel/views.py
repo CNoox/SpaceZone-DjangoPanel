@@ -15,15 +15,9 @@ from django.db.models import Q
 from django.db.models import Min, Max
 from django.core.mail import send_mail
 from django.conf import settings
-import threading
 
 # Create your views here.
-def send_email_async(subject, message, from_email, recipient_list):
-    threading.Thread(
-        target=send_mail,
-        args=(subject, message, from_email, recipient_list),
-        kwargs={"fail_silently": False}
-    ).start()
+
 class AdminSendCodeView(APIView):
     """
     Sends a one-time **authentication code** to superusers for login.
@@ -61,11 +55,12 @@ class AdminSendCodeView(APIView):
                             "Invalid email or password"
                         ]}, status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 if user_code.can_request_new():
@@ -74,11 +69,12 @@ class AdminSendCodeView(APIView):
                             "Invalid email or password"
                         ]}, status=status.HTTP_401_UNAUTHORIZED)
                     code = user_code.create_code()
-                    send_email_async(
+                    send_mail(
                         subject="Verification-Code",
                         message=f"your auth code: {code}",
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[email],
+                        fail_silently=False
                     )
                     return Response({'detail': 'Success!'}, status=status.HTTP_201_CREATED)
                 else:
