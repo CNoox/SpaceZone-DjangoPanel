@@ -249,7 +249,3 @@ class CategoryProductView(views.APIView):
         }, status=status.HTTP_200_OK)
 
 
-
-# class CategoryProductClass(views.APIView):
-#
-
