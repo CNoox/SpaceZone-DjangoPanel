@@ -174,7 +174,7 @@ SIMPLE_JWT = {
 
 # Email settings from environment variables
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Use SMTP backend
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
